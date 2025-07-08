@@ -1,0 +1,26 @@
+{
+  "name": "flood-it-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "server": "node --loader ts-node/esm --experimental-specifier-resolution=node server/server.ts",
+    "dev:server": "nodemon"
+    },
+
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.840.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "nanoid": "^5.1.5",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^20.11.19",
+    "@types/socket.io": "^3.0.1",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
