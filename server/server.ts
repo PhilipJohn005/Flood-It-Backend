@@ -7,6 +7,7 @@ import { DynamoDBClient, PutItemCommand,QueryCommand  } from "@aws-sdk/client-dy
  
 
 const app = express();
+app.use(express.json());
 app.use(cors());
 
 const server = http.createServer(app);
@@ -83,10 +84,10 @@ io.on("connection", (socket) => {
 
     const score = (averageNumOfMoves * colorWeight) + (averageTime * timeWeight);
 
-    roomStats[roomKey].push({id:playerId,name,moves,time,score});  //person has completed it locally
+    roomStats[roomKey].push({id:playerId,name,moves,time,score});  //person has completed it locally so put in room
 
     const boardSize=`${gridSize}x${gridSize}`
-    const dynamoParams={
+    const dynamoParams={           //person has completed it locally so put in dynamodb as well
       TableName:"Flood-It-Leaderboard",
       Item:{
         boardSize:{S:boardSize},
@@ -113,7 +114,7 @@ io.on("connection", (socket) => {
     }
   })
 
-  socket.on("get-leaderboard", async ({ boardSize, limit = 20 }, cb) => {
+  socket.on("get-leaderboard", async ({ boardSize, limit = 10 }, cb) => {
   const queryParams = {
     TableName: "Flood-It-Leaderboard",
     IndexName: "ScoreIndex", // Name of the GSI
@@ -133,7 +134,7 @@ io.on("connection", (socket) => {
       time: Number(item.time.N),
       score: Number(item.score.N),
       boardSize:item.boardSize.S,
-      playerId:Number(item.playerId.N),       
+      playerId: item.playerId.S,
     }));
     cb({ success: true, leaderboard: results });
   } catch (err) {
@@ -168,6 +169,46 @@ io.on("connection", (socket) => {
   });
 
 });
+
+app.post("/insertSinglePlayer",async(req,res)=>{
+  const {playerId,player,gridSize,rounds,colors,moves,endTime}=req.body;
+  if (!playerId || !player || !gridSize || !rounds || !colors || moves == null || endTime == null) {
+    res.status(400).json({ error: "Missing or invalid fields in body" });
+    return;
+  }
+
+  const colorWeight = 1 + (colors - 4) * 0.1;
+    const timeWeight = 0.05;
+    const timeInSeconds = endTime / 1000;
+
+    const averageNumOfMoves=moves/rounds;
+    const averageTime=timeInSeconds/rounds
+
+    const score = (averageNumOfMoves * colorWeight) + (averageTime * timeWeight);
+
+    const boardSize=`${gridSize}x${gridSize}`
+    const dynamoParams={           
+      TableName:"Flood-It-Leaderboard",
+      Item:{
+        boardSize:{S:boardSize},
+        score:{N:score.toFixed(3)},
+        username:{S:player},
+        playerId: { S: playerId },
+        moves: { N: moves.toString() },
+        time: { N: endTime.toString() },
+        timestamp: { N: Date.now().toString() },
+      }}
+
+      try{
+        await dynamo.send(new PutItemCommand(dynamoParams));
+        console.log("Success in inserting to DynamoDB");
+        res.status(200).json({ message: "inserted into db" })
+      }catch(e){
+        console.log("Error occured while inserting to dynamoDB"+e);
+        res.status(500).send("Failed to insert into DB");
+      }
+
+})
 
 server.listen(4000, () => {
   console.log("Socket server running on port 4000");
