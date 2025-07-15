@@ -97,6 +97,7 @@ io.on("connection", (socket) => {
         moves: { N: moves.toString() },
         time: { N: time.toString() },
         timestamp: { N: Date.now().toString() },
+        colors: { N: String(colors) }
       }}
 
       try{
@@ -135,6 +136,7 @@ io.on("connection", (socket) => {
       score: Number(item.score.N),
       boardSize:item.boardSize.S,
       playerId: item.playerId.S,
+      colors:Number(item.colors.N)
     }));
     cb({ success: true, leaderboard: results });
   } catch (err) {
@@ -197,6 +199,7 @@ app.post("/insertSinglePlayer",async(req,res)=>{
         moves: { N: moves.toString() },
         time: { N: endTime.toString() },
         timestamp: { N: Date.now().toString() },
+        colors: { N: String(colors) }
       }}
 
       try{
