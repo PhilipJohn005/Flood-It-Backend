@@ -13,10 +13,13 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // use actual frontend domain in prod
+    origin: "*",
+    methods: ["GET", "POST"],
+    credentials: true
   },
+  transports: ["websocket", "polling"], // Explicitly enable both
+  allowEIO3: true // For compatibility with older clients
 });
-
 const dynamo=new DynamoDBClient({region:"eu-north-1"})
 
 // In-memory room store
