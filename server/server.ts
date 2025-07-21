@@ -84,14 +84,11 @@ io.on("connection", (socket) => {
 
     const { colors,gridSize,rounds } = room.settings;
 
-    const colorWeight = 1 + (colors - 4) * 0.1;
-    const timeWeight = 0.05;
-    const timeInSeconds = time / 1000;
-
     const averageNumOfMoves=moves/rounds;
-    const averageTime=timeInSeconds/rounds
+    const averageTime=time/rounds
+    const colorFactor =Math.pow(1.2,colors-5);
 
-    const score = (averageNumOfMoves * colorWeight) + (averageTime * timeWeight);
+    const score = (averageNumOfMoves*averageTime)/colorFactor;
 
     roomStats[roomKey].push({id:playerId,name,moves,time,score});  //person has completed it locally so put in room
 
@@ -205,14 +202,11 @@ app.post("/insertSinglePlayer",async(req,res)=>{
     return;
   }
 
-  const colorWeight = 1 + (colors - 4) * 0.1;
-    const timeWeight = 0.05;
-    const timeInSeconds = endTime / 1000;
-
     const averageNumOfMoves=moves/rounds;
-    const averageTime=timeInSeconds/rounds
+    const averageTime=endTime/rounds
+    const colorFactor = Math.pow(1.2,colors-5);
 
-    const score = (averageNumOfMoves * colorWeight) + (averageTime * timeWeight);
+    const score=(averageNumOfMoves * averageTime)/colorFactor;
 
     const boardSize=`${gridSize}x${gridSize}`
     const dynamoParams={           
