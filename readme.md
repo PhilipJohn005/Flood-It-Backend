@@ -50,7 +50,7 @@ npm install
 
 3. **Start the server:**
 ```bash
-node index.js
+npm run server
 ```
 
 The server will start on port 4000.
