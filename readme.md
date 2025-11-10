@@ -149,6 +149,8 @@ score = (avgMoves × 1,000,000 + avgTime) ÷ colorFactor
 - **Transports**: WebSocket with polling fallback
 - **Compatibility**: Supports Engine.IO v3 clients
 
+---
+
 ## 📊 Database Schema
 
 ### DynamoDB Table Structure
@@ -163,6 +165,193 @@ Flood-It-Leaderboard
 ├── timestamp (N) - Unix timestamp
 └── colors (N) - Number of colors used
 ```
+
+
+## 🚢 Production Deployment
+
+<div align="center">
+
+### 📦 Deploy to AWS EC2 with nginx & SSL
+
+*Complete blueprint for production-ready Socket.IO deployment*
+
+</div>
+
+### 🖥️ EC2 Instance Setup
+
+**1. Launch & Configure EC2 Instance**
+```bash
+# Update system packages
+sudo apt update && sudo apt upgrade -y
+
+# Install Node.js (using NodeSource repository)
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Install nginx
+sudo apt install -y nginx
+
+# Install PM2 for process management
+sudo npm install -g pm2
+```
+
+**2. Clone & Setup Application**
+```bash
+# Clone your repository
+git clone <your-repo-url>
+cd <your-project-folder>
+
+# Install dependencies
+npm install
+
+# Start with PM2
+pm2 start server.js --name flood-it-backend
+pm2 startup systemd  # Enable auto-restart on reboot
+pm2 save
+```
+
+### 🔒 SSL Certificate Setup
+
+**Configure Let's Encrypt for HTTPS**
+```bash
+# Install Certbot
+sudo apt install -y certbot python3-certbot-nginx
+
+# Obtain SSL certificate (replace your-domain.com)
+sudo certbot --nginx -d your-domain.com
+
+# Auto-renewal is configured by default
+# Test renewal with:
+sudo certbot renew --dry-run
+```
+
+### ⚙️ nginx Configuration
+
+**Create nginx config file**: `/etc/nginx/sites-available/flood-it-backend`
+
+```nginx
+# WebSocket upgrade handling
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
+# HTTP → HTTPS redirect
+server {
+    listen 80;
+    server_name your-domain.com;
+    return 301 https://$host$request_uri;
+}
+
+# HTTPS server with Socket.IO support
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+
+    # SSL certificate paths (auto-configured by certbot)
+    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+    
+    # SSL security settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # Socket.IO specific proxy
+    location /socket.io/ {
+        proxy_pass http://localhost:4000/socket.io/;
+        proxy_http_version 1.1;
+        
+        # WebSocket headers
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Extended timeout for long-lived connections
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+        
+        # Disable buffering for real-time data
+        proxy_buffering off;
+    }
+
+    # Regular HTTP endpoints
+    location / {
+        proxy_pass http://localhost:4000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+**Enable the configuration**
+```bash
+# Create symbolic link
+sudo ln -s /etc/nginx/sites-available/flood-it-backend /etc/nginx/sites-enabled/
+
+# Test nginx configuration
+sudo nginx -t
+
+# Restart nginx
+sudo systemctl restart nginx
+```
+
+### 🔍 Verification & Testing
+
+**Check service status**
+```bash
+# Verify PM2 is running
+pm2 status
+
+# Check nginx status
+sudo systemctl status nginx
+
+# View application logs
+pm2 logs flood-it-backend
+
+# View nginx error logs
+sudo tail -f /var/log/nginx/error.log
+```
+
+**Test WebSocket connection**
+```bash
+# Test from local machine
+curl https://your-domain.com
+
+# Test Socket.IO endpoint
+curl https://your-domain.com/socket.io/?EIO=4&transport=polling
+```
+
+### 🔥 Firewall Configuration
+
+```bash
+# Allow HTTP, HTTPS, and SSH
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+```
+
+### 📝 Important Notes
+
+> **🎯 Key Configuration Points:**
+> - Server must run on `localhost:4000` (not `0.0.0.0`)
+> - nginx handles SSL termination and proxies to Node.js
+> - WebSocket upgrade headers are **critical** for Socket.IO
+> - Extended timeouts prevent WebSocket disconnections
+> - PM2 ensures the app restarts on crashes/reboots
+
+> **⚠️ Troubleshooting:**
+> - **502 Bad Gateway**: Check if Node.js server is running (`pm2 status`)
+> - **WebSocket fails**: Verify nginx `Upgrade` and `Connection` headers
+> - **CORS errors**: Update Socket.IO CORS config to include your domain
+> - **SSL issues**: Ensure certbot renewal is working (`sudo certbot renew --dry-run`)
+
+---
 
 ## 🤝 Contributing
 
